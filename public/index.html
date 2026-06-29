@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>⚖️ LexiNotebook — Multi-Agent Legal AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222535;--border:#2e3247;
+  --text:#e8eaf0;--muted:#7b82a0;--accent:#ff7a33;--accent2:#ff9a5c;
+  --success:#22c55e;--danger:#ef4444;--radius:10px;--font:'Inter',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ── */
+header{padding:18px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:var(--surface)}
+header h1{font-size:1.2rem;font-weight:700;letter-spacing:-.01em}
+header p{font-size:.78rem;color:var(--muted);margin-top:2px}
+.badge{background:var(--accent);color:#1a1a1a;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:340px 1fr;flex:1;overflow:hidden;height:calc(100vh - 65px)}
+
+/* ── Left Panel ── */
+.left{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.panel-section{padding:16px;border-bottom:1px solid var(--border)}
+.panel-section:last-child{border-bottom:none;flex:1;overflow-y:auto}
+label{display:block;font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+
+input[type=password],input[type=text]{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:.85rem;outline:none;
+  transition:border-color .2s
+}
+input[type=password]:focus,input[type=text]:focus{border-color:var(--accent)}
+
+/* ── Drop Zone ── */
+.drop-zone{
+  border:2px dashed var(--border);border-radius:var(--radius);padding:22px;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)
+}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(255,122,51,.06)}
+.drop-zone svg{margin-bottom:8px;opacity:.5}
+.drop-zone p{font-size:.82rem;color:var(--muted)}
+.drop-zone span{color:var(--accent);font-weight:600}
+#file-input{display:none}
+
+/* ── Status log ── */
+#status-log{
+  background:var(--surface2);border-radius:var(--radius);padding:12px;
+  font-size:.78rem;color:var(--muted);font-family:'Courier New',monospace;
+  min-height:80px;max-height:160px;overflow-y:auto;white-space:pre-wrap;line-height:1.6
+}
+
+/* ── Doc list ── */
+.doc-chip{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:var(--surface2);border-radius:8px;margin-bottom:6px;font-size:.82rem
+}
+.doc-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0}
+.doc-chip .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-chip .rm{cursor:pointer;color:var(--muted);font-size:.9rem;padding:2px 4px;border-radius:4px}
+.doc-chip .rm:hover{color:var(--danger)}
+
+/* ── Right Panel ── */
+.right{display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface);padding:0 20px}
+.tab{padding:13px 18px;font-size:.85rem;font-weight:500;color:var(--muted);cursor:pointer;
+     border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── Tab panels ── */
+.tab-panels{flex:1;overflow:hidden;position:relative}
+.tab-panel{position:absolute;inset:0;overflow-y:auto;padding:24px;display:none}
+.tab-panel.active{display:block}
+
+/* ── Chat ── */
+#chat-messages{display:flex;flex-direction:column;gap:14px;padding-bottom:20px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg.user{flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--surface2);
+         border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+         font-size:.9rem;flex-shrink:0}
+.msg.user .avatar{background:var(--accent);color:#1a1a1a}
+.bubble{max-width:78%;background:var(--surface2);border:1px solid var(--border);
+         border-radius:12px;padding:12px 15px;font-size:.875rem;line-height:1.6}
+.msg.user .bubble{background:rgba(255,122,51,.12);border-color:rgba(255,122,51,.3)}
+.bubble p{margin-bottom:.5em}.bubble p:last-child{margin:0}
+.bubble h2,.bubble h3{margin:.6em 0 .3em;font-size:.95rem}
+.bubble ul,.bubble ol{padding-left:1.2em;margin:.3em 0}
+.bubble code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-size:.82em}
+.bubble pre{background:rgba(0,0,0,.3);border-radius:8px;padding:10px;overflow-x:auto;margin:.5em 0}
+.bubble pre code{background:none;padding:0}
+.agent-status{font-size:.8rem;color:var(--muted);font-style:italic;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+/* ── Chat input bar ── */
+.chat-bar{padding:16px 24px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:10px}
+.chat-bar textarea{
+  flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px 14px;color:var(--text);font-family:var(--font);font-size:.875rem;
+  resize:none;outline:none;transition:border-color .2s;line-height:1.5;max-height:120px
+}
+.chat-bar textarea:focus{border-color:var(--accent)}
+.btn{
+  background:var(--accent);color:#1a1a1a;border:none;border-radius:var(--radius);
+  padding:10px 20px;font-weight:700;font-size:.85rem;cursor:pointer;transition:background .2s;white-space:nowrap
+}
+.btn:hover{background:var(--accent2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--text);background:transparent}
+
+/* ── Summary ── */
+#summary-content{font-size:.875rem;line-height:1.7;color:var(--text)}
+#summary-content h2{font-size:1rem;color:var(--accent);margin:1.2em 0 .4em;padding-bottom:.3em;border-bottom:1px solid var(--border)}
+#summary-content h3{font-size:.92rem;margin:.8em 0 .3em}
+#summary-content ul,#summary-content ol{padding-left:1.4em;margin:.3em 0}
+#summary-content li{margin-bottom:.25em}
+#summary-content strong{color:var(--text)}
+.placeholder{color:var(--muted);font-style:italic;font-size:.875rem;padding:20px 0}
+
+/* ── Mindmap ── */
+#mindmap-content .lx-tree{padding:4px}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .left{max-height:42vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚖️ LexiNotebook <span class="badge">Multi-Agent</span></h1>
+    <p>Legal AI powered by IBM Docling &amp; Gemini 2.5 Flash &nbsp;·&nbsp; <em>by Abdul Samad</em></p>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Left Panel ── -->
+  <aside class="left">
+
+    <div class="panel-section">
+      <label>Gemini API Key</label>
+      <input type="password" id="api-key" placeholder="AIza..."/>
+    </div>
+
+    <div class="panel-section">
+      <label>Upload Documents</label>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p><span>Click to upload</span> or drag &amp; drop</p>
+        <p style="font-size:.72rem;margin-top:4px">PDF · DOCX · PNG · JPG</p>
+      </div>
+      <input type="file" id="file-input" multiple accept=".pdf,.docx,.png,.jpg,.jpeg"/>
+    </div>
+
+    <div class="panel-section">
+      <label>Pipeline Status</label>
+      <div id="status-log">Ready. Upload a document to begin.</div>
+    </div>
+
+    <div class="panel-section">
+      <label>Loaded Documents</label>
+      <div id="doc-list"><p class="placeholder">No documents loaded yet.</p></div>
+    </div>
+
+  </aside>
+
+  <!-- ── Right Panel ── -->
+  <main class="right">
+
+    <div class="tabs">
+      <div class="tab active" data-tab="chat">💬 Chat</div>
+      <div class="tab" data-tab="summary">📄 Summary</div>
+      <div class="tab" data-tab="mindmap">🧠 Mindmap</div>
+    </div>
+
+    <div class="tab-panels">
+
+      <!-- Chat -->
+      <div class="tab-panel active" id="panel-chat">
+        <div id="chat-messages">
+          <div class="msg">
+            <div class="avatar">⚖️</div>
+            <div class="bubble">Welcome to LexiNotebook. Upload a legal document on the left, then ask me anything about it.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="tab-panel" id="panel-summary">
+        <div id="summary-content"><p class="placeholder">Upload a document to see its AI-generated summary here.</p></div>
+      </div>
+
+      <!-- Mindmap -->
+      <div class="tab-panel" id="panel-mindmap">
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:16px">Hierarchical structure extracted by the Analysis Agent. Click nodes to expand/collapse.</p>
+        <div id="mindmap-content"><p class="placeholder">Upload a document to see its structure mapped here.</p></div>
+      </div>
+
+    </div>
+
+    <!-- Chat input -->
+    <div class="chat-bar">
+      <textarea id="chat-input" rows="1" placeholder="Ask a question about your documents… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button class="btn" id="send-btn" disabled>Send</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const docs = [];   // [{name, text, summary, mindmap, mindmap_html}]
+let activeSummaryIdx = -1;
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab,.tab-panel').forEach(el => el.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const log = msg => { $('status-log').textContent += '\n' + msg; $('status-log').scrollTop = 99999; };
+const apiKey = () => $('api-key').value.trim();
+
+function updateSendBtn() {
+  $('send-btn').disabled = docs.length === 0 || $('chat-input').value.trim() === '';
+}
+
+function renderDocList() {
+  const el = $('doc-list');
+  if (docs.length === 0) { el.innerHTML = '<p class="placeholder">No documents loaded yet.</p>'; return; }
+  el.innerHTML = docs.map((d, i) => `
+    <div class="doc-chip">
+      <div class="dot"></div>
+      <div class="name" title="${esc(d.name)}">${esc(d.name)}</div>
+      <span class="rm" onclick="removeDoc(${i})" title="Remove">✕</span>
+    </div>`).join('');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function removeDoc(i) {
+  docs.splice(i, 1);
+  renderDocList();
+  updateSendBtn();
+  if (docs.length === 0) {
+    $('summary-content').innerHTML = '<p class="placeholder">Upload a document to see its AI-generated summary here.</p>';
+    $('mindmap-content').innerHTML = '<p class="placeholder">Upload a document to see its structure mapped here.</p>';
+  }
+}
+
+// ── File Upload ─────────────────────────────────────────────────────────────
+const dropZone = $('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+$('file-input').addEventListener('change', e => handleFiles(e.target.files));
+
+async function handleFiles(fileList) {
+  if (!apiKey()) { alert('Please enter your Gemini API key first.'); return; }
+  for (const file of fileList) {
+    await uploadFile(file);
+  }
+}
+
+async function uploadFile(file) {
+  log(`📄 ${file.name}: Ingesting via Docling...`);
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('api_key', apiKey());
+
+  try {
+    log(`🧠 ${file.name}: Analyzing structure...`);
+    const res = await fetch('/api/ingest', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (data.error) { log(`❌ ${file.name}: ${data.error}`); return; }
+
+    docs.push(data);
+    log(`✅ ${file.name}: Ready!`);
+
+    // Show summary and mindmap for the last uploaded doc
+    $('summary-content').innerHTML = marked.parse(data.summary || '');
+    $('mindmap-content').innerHTML = data.mindmap_html || '<p class="placeholder">No structure available.</p>';
+
+    renderDocList();
+    updateSendBtn();
+
+    // Auto-switch to summary tab
+    document.querySelector('[data-tab="summary"]').click();
+
+  } catch (err) {
+    log(`❌ ${file.name}: Network error — ${err.message}`);
+  }
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────────
+const chatInput = $('chat-input');
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+  updateSendBtn();
+});
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+$('send-btn').addEventListener('click', sendMessage);
+
+function appendMessage(role, content, isStatus = false) {
+  const msgs = $('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `
+    <div class="avatar">${role === 'user' ? '👤' : '⚖️'}</div>
+    <div class="bubble ${isStatus ? 'agent-status' : ''}">${content}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div.querySelector('.bubble');
+}
+
+function updateBubble(bubble, content, isStatus = false) {
+  bubble.className = 'bubble' + (isStatus ? ' agent-status' : '');
+  bubble.innerHTML = content;
+  $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
+}
+
+async function sendMessage() {
+  const query = chatInput.value.trim();
+  if (!query || docs.length === 0) return;
+
+  // Switch to chat tab
+  document.querySelector('[data-tab="chat"]').click();
+
+  chatInput.value = '';
+  chatInput.style.height = 'auto';
+  $('send-btn').disabled = true;
+
+  appendMessage('user', esc(query));
+
+  // Status bubble
+  const statusBubble = appendMessage('assistant', '🛡️ Guardrail Agent: Checking compliance…', true);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        api_key: apiKey(),
+        documents: docs.map(d => ({ name: d.name, text: d.text })),
+      }),
+    });
+
+    updateBubble(statusBubble, '⚖️ Counsel Agent: Drafting response…', true);
+    const data = await res.json();
+
+    if (data.error) {
+      updateBubble(statusBubble, `❌ <strong>Error:</strong> ${esc(data.error)}`);
+      return;
+    }
+    if (data.blocked) {
+      updateBubble(statusBubble, `🛑 <strong>Blocked by Guardrails:</strong> ${esc(data.reason)}`);
+      return;
+    }
+
+    updateBubble(statusBubble, '🔍 Validation Agent: Verifying citations…', true);
+    // Small pause so the user sees the validation step
+    await new Promise(r => setTimeout(r, 400));
+
+    updateBubble(statusBubble, marked.parse(data.response || ''));
+
+  } catch (err) {
+    updateBubble(statusBubble, `❌ <strong>Network error:</strong> ${esc(err.message)}`);
+  } finally {
+    updateSendBtn();
+  }
+}
+</script>
+</body>
+</html>
